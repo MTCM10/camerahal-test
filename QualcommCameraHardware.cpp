@@ -87,6 +87,22 @@ extern "C" {
 
 #define APP_ORIENTATION 0
 
+namespace android
+{
+    struct FPSRange{
+        int minFPS;
+        int maxFPS;
+        FPSRange(){
+            minFPS=0;
+            maxFPS=0;
+        };
+        FPSRange(int min,int max){
+            minFPS=min;
+            maxFPS=max;
+        };
+    };
+}
+    
 #if DLOPEN_LIBMMCAMERA
 #include <dlfcn.h>
 
@@ -347,7 +363,7 @@ static int kRecordBufferCount;
 static bool mVpeEnabled;
 
 static int HAL_numOfCameras = 0;
-static camera_info_t HAL_cameraInfo[MSM_MAX_CAMERA_SENSORS];
+static camera_info_t HAL_cameraInfo[MAX_SENSOR_NUM];
 static int HAL_currentCameraId = 0;
 
 namespace android {
@@ -617,7 +633,7 @@ static const str_map scenemode[] = {
     { CameraParameters::SCENE_MODE_CANDLELIGHT,    CAMERA_BESTSHOT_CANDLELIGHT },
     { CameraParameters::SCENE_MODE_BACKLIGHT,      CAMERA_BESTSHOT_BACKLIGHT },
     { CameraParameters::SCENE_MODE_FLOWERS,        CAMERA_BESTSHOT_FLOWERS },
-    { CameraParameters::SCENE_MODE_AR,             CAMERA_BESTSHOT_AR },
+//    { CameraParameters::SCENE_MODE_AR,             CAMERA_BESTSHOT_AR },
 };
 
 static const str_map scenedetect[] = {
@@ -756,7 +772,7 @@ static SensorType sensorTypes[] = {
         { "12mp", 5464, 3120, true, 4000, 3000,0x00001fff },
         { "12mp_sn12m0pz",4032, 3024, true,  4000, 3000,0x00000fff },
         { "5mp", 2608, 1960, true,  2592, 1944,0x00000fff },
-        { "5mp_triumph", 5184, 1944, false,  2592, 1944,0x00000fff },
+        { "5mp_triumph", 5184, 1944, true,  2592, 1944,0x00000fff },
         { "3mp", 2064, 1544, false, 2048, 1536,0x000007ff },
         { "2mp", 3200, 1200, false, 1600, 1200,0x000007ff },
         { "mt9m113", 1280, 1024, false, 1280, 1024, 0x000000ff }, //TouchPad Camera Sensor
@@ -1445,7 +1461,7 @@ void QualcommCameraHardware::initDefaultParameters()
         mParameters.set("video-zoom-support", "false");
     }
 
-    mParameters.set(CameraParameters::KEY_CAMERA_MODE,0);
+    //mParameters.set(CameraParameters::KEY_CAMERA_MODE,0);
 
     mParameters.set(CameraParameters::KEY_ANTIBANDING,
                     CameraParameters::ANTIBANDING_OFF);
@@ -1478,8 +1494,8 @@ void QualcommCameraHardware::initDefaultParameters()
 
     mParameters.set(CameraParameters::KEY_SUPPORTED_PREVIEW_SIZES,
                     preview_size_values.string());
-    mParameters.set(CameraParameters::KEY_SUPPORTED_VIDEO_SIZES,
-                    preview_size_values.string());
+    //mParameters.set(CameraParameters::KEY_SUPPORTED_VIDEO_SIZES,
+    //                preview_size_values.string());
 
     mParameters.set(CameraParameters::KEY_SUPPORTED_PICTURE_SIZES,
                     picture_size_values.string());
@@ -1581,8 +1597,8 @@ void QualcommCameraHardware::initDefaultParameters()
     mParameters.setTouchIndexAf(-1, -1);
     mParameters.set("touchAfAec-dx","100");
     mParameters.set("touchAfAec-dy","100");
-    mParameters.set(CameraParameters::KEY_MAX_NUM_FOCUS_AREAS, "1");
-    mParameters.set(CameraParameters::KEY_MAX_NUM_METERING_AREAS, "1");
+    //mParameters.set(CameraParameters::KEY_MAX_NUM_FOCUS_AREAS, "1");
+    //mParameters.set(CameraParameters::KEY_MAX_NUM_METERING_AREAS, "1");
     mParameters.set(CameraParameters::KEY_SCENE_DETECT,
                     CameraParameters::SCENE_DETECT_OFF);
     mParameters.set(CameraParameters::KEY_SUPPORTED_SCENE_DETECT,
@@ -1601,8 +1617,8 @@ void QualcommCameraHardware::initDefaultParameters()
                     CameraParameters::FACE_DETECTION_OFF);
     mParameters.set(CameraParameters::KEY_SUPPORTED_FACE_DETECTION,
                     facedetection_values);
-    mParameters.set(CameraParameters::KEY_PREFERRED_PREVIEW_SIZE_FOR_VIDEO,
-                    "640x480");
+    //mParameters.set(CameraParameters::KEY_PREFERRED_PREVIEW_SIZE_FOR_VIDEO,
+    //                "640x480");
     if (setParameters(mParameters) != NO_ERROR) {
         LOGE("Failed to set default parameters?!");
     }
@@ -1925,7 +1941,7 @@ static bool native_get_zoomratios(int camfd, void *pZr, int maxZoomSize)
     return true;
 }
 
-static bool native_set_afmode(int camfd, isp3a_af_mode_t af_type)
+static bool native_set_afmode(int camfd, int af_type)
 {
     int rc;
     struct msm_ctrl_cmd ctrlCmd;
@@ -1942,7 +1958,7 @@ static bool native_set_afmode(int camfd, isp3a_af_mode_t af_type)
              camfd,
              strerror(errno));
 
-    LOGV("native_set_afmode: ctrlCmd.status == %d\n", ctrlCmd.status);
+    LOGV("native_set_afmode: ctrlCmd.status == %d rc == %d\n", ctrlCmd.status, rc);
     return rc >= 0 && ctrlCmd.status == CAMERA_EXIT_CB_DONE;
 }
 
@@ -2237,7 +2253,7 @@ static bool native_stop_video(int camfd)
     ctrlCmd.value = NULL;
     ctrlCmd.resp_fd = camfd;
 
-    LOGI("%s: E", __FUNCTION__);
+    LOGI("%s: E %d", __FUNCTION__, camfd);
     if ((ret = ioctl(camfd, MSM_CAM_IOCTL_CTRL_COMMAND, &ctrlCmd)) < 0) {
         LOGE("native_stop_video: ioctl failed. ioctl return value is %d \n",
         ret);
@@ -3493,13 +3509,13 @@ void QualcommCameraHardware::release()
        mMetaDataHeap = NULL;
     }
 
-    ctrlCmd.timeout_ms = 5000;
-    ctrlCmd.length = 0;
-    ctrlCmd.type = (uint16_t)CAMERA_EXIT;
-    ctrlCmd.resp_fd = mCameraControlFd; // FIXME: this will be put in by the kernel
-    if (ioctl(mCameraControlFd, MSM_CAM_IOCTL_CTRL_COMMAND, &ctrlCmd) < 0)
-          LOGE("ioctl CAMERA_EXIT fd %d error %s",
-              mCameraControlFd, strerror(errno));
+    // ctrlCmd.timeout_ms = 5000;
+    // ctrlCmd.length = 0;
+    // ctrlCmd.type = (uint16_t)CAMERA_EXIT;
+    // ctrlCmd.resp_fd = mCameraControlFd; // FIXME: this will be put in by the kernel
+    // if (ioctl(mCameraControlFd, MSM_CAM_IOCTL_CTRL_COMMAND, &ctrlCmd) < 0)
+    //       LOGE("ioctl CAMERA_EXIT fd %d error %s",
+    //           mCameraControlFd, strerror(errno));
 
     LINK_mm_camera_config_deinit(&mCfgControl);
     close(mCameraControlFd);
@@ -3640,6 +3656,7 @@ void QualcommCameraHardware::stopPreviewInternal()
             }
         }
     }
+    
     if (!mCameraRunning) {
         if (mPreviewInitialized) {
             deinitPreview();
@@ -3687,7 +3704,7 @@ void QualcommCameraHardware::runAutoFocus()
 {
     bool status = true;
     void *libhandle = NULL;
-    isp3a_af_mode_t afMode;
+    int afMode;
 
     LOGV("%s E", __FUNCTION__);
     mAutoFocusThreadLock.lock();
@@ -3719,7 +3736,7 @@ void QualcommCameraHardware::runAutoFocus()
         return;
     }
 
-    afMode = (isp3a_af_mode_t)attr_lookup(focus_modes,
+    afMode = (int)attr_lookup(focus_modes,
                                 sizeof(focus_modes) / sizeof(str_map),
                                 mParameters.get(CameraParameters::KEY_FOCUS_MODE));
 
@@ -7060,10 +7077,10 @@ status_t QualcommCameraHardware::setOverlay(const sp<Overlay> &Overlay)
     return NO_ERROR;
 }
 
-void QualcommCameraHardware::receive_camframe_error_timeout(void) {
+void QualcommCameraHardware::receive_camframe_error_timeout(camera_error_type err) {
     LOGI("receive_camframe_error_timeout: E");
     Mutex::Autolock l(&mCamframeTimeoutLock);
-    LOGE(" Camframe timed out. Not receiving any frames from camera driver ");
+    LOGE(" Camframe timed out. Not receiving any frames from camera driver err %d ", err);
     camframe_timeout_flag = TRUE;
     mNotifyCallback(CAMERA_MSG_ERROR, CAMERA_ERROR_UNKNOWN, 0,
                     mCallbackCookie);
@@ -7078,7 +7095,7 @@ static void receive_camframe_error_callback(camera_error_type err) {
             /* Handling different error types is dependent on the requirement.
              * Do the same action by default
              */
-            obj->receive_camframe_error_timeout();
+            obj->receive_camframe_error_timeout(err);
         }
     }
 }
@@ -7252,13 +7269,13 @@ void QualcommCameraHardware::encodeData() {
 
 void QualcommCameraHardware::getCameraInfo()
 {
-    struct msm_camera_info camInfo;
+    struct msm_camsensor_info camInfo;
     int i, ret;
 
     LOGV("%s E", __FUNCTION__);
     int camfd = open(MSM_CAMERA_CONTROL, O_RDWR);
     if (camfd >= 0) {
-        ret = ioctl(camfd, MSM_CAM_IOCTL_GET_CAMERA_INFO, &camInfo);
+        ret = ioctl(camfd, MSM_CAM_IOCTL_GET_FIH_SENSOR_INFO, &camInfo);
         close(camfd);
 
         if (ret < 0) {
@@ -7268,18 +7285,20 @@ void QualcommCameraHardware::getCameraInfo()
              return;
         }
 
-        for (i = 0; i < camInfo.num_cameras; ++i) {
+        for (i = 0; i < MAX_SENSOR_NUM; ++i) {
              HAL_cameraInfo[i].camera_id = i + 1;
-             HAL_cameraInfo[i].position = camInfo.is_internal_cam[i] == 1 ? FRONT_CAMERA : BACK_CAMERA;
-             HAL_cameraInfo[i].sensor_mount_angle = camInfo.s_mount_angle[i];
+             HAL_cameraInfo[i].position = i == 1 ? BACK_CAMERA : FRONT_CAMERA;
+             //HAL_cameraInfo[i].sensor_mount_angle = camInfo.s_mount_angle[i];
+             HAL_cameraInfo[i].sensor_mount_angle = 90;
              HAL_cameraInfo[i].modes_supported = CAMERA_MODE_2D;
-             if (camInfo.has_3d_support[i])
-                  HAL_cameraInfo[i].modes_supported |= CAMERA_MODE_3D;
+             //if (camInfo.has_3d_support[i])
+             //     HAL_cameraInfo[i].modes_supported |= CAMERA_MODE_3D;
 
              LOGV("camera %d, facing: %d, orientation: %d, mode: %d\n", HAL_cameraInfo[i].camera_id, 
                   HAL_cameraInfo[i].position, HAL_cameraInfo[i].sensor_mount_angle, HAL_cameraInfo[i].modes_supported);
         }
-        HAL_numOfCameras = camInfo.num_cameras;
+        //HAL_numOfCameras = camInfo.num_cameras;
+        HAL_numOfCameras = 2;
     }
     LOGV("HAL_numOfCameras: %d\n", HAL_numOfCameras);
     LOGV("%s X", __FUNCTION__);

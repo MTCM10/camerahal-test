@@ -24,6 +24,7 @@
 
 #define MAX_CAMERAS_SUPPORTED 2
 #define GRALLOC_USAGE_PMEM_PRIVATE_ADSP GRALLOC_USAGE_PRIVATE_0
+//#define BOARD_USE_FROYO_LIBCAMERA
 
 #include <fcntl.h>
 #include <stdint.h>
@@ -40,6 +41,10 @@
 #include "CameraHardwareInterface.h"
 #include <cutils/properties.h>
 
+#define ALOGV LOGV
+#define ALOGE LOGE
+#define ALOGI LOGI
+
 using android::sp;
 using android::Overlay;
 using android::String8;
@@ -49,6 +54,7 @@ using android::CameraParameters;
 
 using android::CameraInfo;
 #ifndef BOARD_USE_FROYO_LIBCAMERA
+#warning NO FROYO LIBCAMERA
 using android::HAL_getCameraInfo;
 using android::HAL_getNumberOfCameras;
 using android::HAL_openCameraHardware;
@@ -56,6 +62,7 @@ using android::HAL_openCameraHardware;
 using android::CameraHardwareInterface;
 
 #ifdef BOARD_USE_FROYO_LIBCAMERA
+#warning FROYO LIBCAMERA
 extern "C" android::sp<android::CameraHardwareInterface> openCameraHardware(int id);
 #endif
 static sp<CameraHardwareInterface> gCameraHals[MAX_CAMERAS_SUPPORTED];
@@ -123,7 +130,9 @@ static struct {
     {0x0100, "CAMERA_MSG_COMPRESSED_IMAGE"},
     {0x0200, "CAMERA_MSG_RAW_IMAGE_NOTIFY"},
     {0x0400, "CAMERA_MSG_PREVIEW_METADATA"},
-    {0x0000, "CAMERA_MSG_ALL_MSGS"}, //0xFFFF
+    {0x0800, "CAMERA_MSG_STATS_DATA"},
+    {0x8000, "CAMERA_MSG_META_DATA"},
+    {0xFFFF, "CAMERA_MSG_ALL_MSGS"}, //0xFFFF
     {0x0000, "NULL"},
 };
 
@@ -500,6 +509,7 @@ int camera_set_preview_window(struct camera_device * device,
     dev->preview_height = preview_height;
 
     if (dev->overlay == NULL) {
+        ALOGI("%s: Allocating new overlay", __FUNCTION__);
         dev->overlay =  new Overlay(wrap_set_fd_hook,
                                     wrap_set_crop_hook,
                                     wrap_queue_buffer_hook,
@@ -612,6 +622,8 @@ int camera_start_preview(struct camera_device * device)
 
     dev = (priv_camera_device_t*) device;
 
+    gCameraHals[dev->cameraid]->enableMsgType(CAMERA_MSG_PREVIEW_FRAME);
+    
     rv = gCameraHals[dev->cameraid]->startPreview();
 
     ALOGI("%s--- rv %d", __FUNCTION__,rv);
@@ -754,12 +766,14 @@ int camera_auto_focus(struct camera_device * device)
     int rv = -EINVAL;
     priv_camera_device_t* dev = NULL;
 
-    ALOGI("%s+++: device %p", __FUNCTION__, device);
+    ALOGI("%s+++: MSG FOCUS IN device %p", __FUNCTION__, device);
 
     if(!device)
         return rv;
 
     dev = (priv_camera_device_t*) device;
+    
+    gCameraHals[dev->cameraid]->enableMsgType(CAMERA_MSG_ALL_MSGS );
 
     rv = gCameraHals[dev->cameraid]->autoFocus();
 
@@ -790,17 +804,15 @@ int camera_take_picture(struct camera_device * device)
     int rv = -EINVAL;
     priv_camera_device_t* dev = NULL;
 
-    ALOGI("%s+++: device %p", __FUNCTION__, device);
+    ALOGI("%s+++: FOCUS ALL IN device %p", __FUNCTION__, device);
 
     if(!device)
         return rv;
 
     dev = (priv_camera_device_t*) device;
 
-    gCameraHals[dev->cameraid]->enableMsgType(CAMERA_MSG_SHUTTER |
-        CAMERA_MSG_POSTVIEW_FRAME |
-        CAMERA_MSG_RAW_IMAGE |
-        CAMERA_MSG_COMPRESSED_IMAGE);
+    gCameraHals[dev->cameraid]->enableMsgType(CAMERA_MSG_ALL_MSGS
+        );
 
     rv = gCameraHals[dev->cameraid]->takePicture();
 
@@ -857,7 +869,7 @@ int camera_set_parameters(struct camera_device * device, const char *params)
 #ifdef DUMP_PARAMS
     camParams.dump();
 #endif
-
+    
     ALOGI("%s--- rv %d", __FUNCTION__,rv);
     return rv;
 }
@@ -877,13 +889,13 @@ char* camera_get_parameters(struct camera_device * device)
     dev = (priv_camera_device_t*) device;
 
     camParams = gCameraHals[dev->cameraid]->getParameters();
-
+    
 #ifdef DUMP_PARAMS
     camParams.dump();
 #endif
 
     CameraHAL_FixupParams(camParams);
-
+    
 #ifdef HTC_FFC
     if (dev->cameraid == 1) {
 #ifdef REVERSE_FFC
@@ -897,13 +909,13 @@ char* camera_get_parameters(struct camera_device * device)
     camParams.set("orientation", "landscape");
 
     params_str8 = camParams.flatten();
-    params = (char*) malloc(sizeof(char) * (params_str8.length()+1));
+    params = (char*) malloc(sizeof(char) * (params_str8.length() + 1));
     strcpy(params, params_str8.string());
 
 #ifdef DUMP_PARAMS
     camParams.dump();
 #endif
-
+    
     ALOGI("%s---", __FUNCTION__);
     return params;
 }
@@ -1216,7 +1228,7 @@ int camera_get_camera_info(int camera_id, struct camera_info *info)
     info->facing = cameraInfo.facing;
     info->orientation = cameraInfo.orientation;
 #endif
-
+    
     ALOGI("%s: id:%i faceing:%i orientation: %i", __FUNCTION__,camera_id, info->facing, info->orientation);
 
     return rv;

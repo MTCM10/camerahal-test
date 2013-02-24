@@ -27,6 +27,7 @@
 
 extern "C" {
 #include <linux/android_pmem.h>
+#define CONFIG_FIH_CONFIG_GROUP
 #include "msm_camera.h"
 #include "QCamera_Intf.h"
 }
@@ -64,46 +65,46 @@ typedef struct {
 
 typedef uint8_t jpeg_event_t;
 
-typedef enum {
-	CAMERA_WB_MIN_MINUS_1,
-	CAMERA_WB_AUTO = 1,  /* This list must match aeecamera.h */
-	CAMERA_WB_CUSTOM,
-	CAMERA_WB_INCANDESCENT,
-	CAMERA_WB_FLUORESCENT,
-	CAMERA_WB_DAYLIGHT,
-	CAMERA_WB_CLOUDY_DAYLIGHT,
-	CAMERA_WB_TWILIGHT,
-	CAMERA_WB_SHADE,
-	CAMERA_WB_MAX_PLUS_1
-} camera_wb_type;
+/* typedef enum { */
+/* 	CAMERA_WB_MIN_MINUS_1, */
+/* 	CAMERA_WB_AUTO = 1,  /\* This list must match aeecamera.h *\/ */
+/* 	CAMERA_WB_CUSTOM, */
+/* 	CAMERA_WB_INCANDESCENT, */
+/* 	CAMERA_WB_FLUORESCENT, */
+/* 	CAMERA_WB_DAYLIGHT, */
+/* 	CAMERA_WB_CLOUDY_DAYLIGHT, */
+/* 	CAMERA_WB_TWILIGHT, */
+/* 	CAMERA_WB_SHADE, */
+/* 	CAMERA_WB_MAX_PLUS_1 */
+/* } camera_wb_type; */
 
-typedef enum {
-    CAMERA_BESTSHOT_OFF,
-    CAMERA_BESTSHOT_ACTION,
-    CAMERA_BESTSHOT_PORTRAIT,
-    CAMERA_BESTSHOT_LANDSCAPE,
-    CAMERA_BESTSHOT_NIGHT,
-    CAMERA_BESTSHOT_NIGHT_PORTRAIT,
-    CAMERA_BESTSHOT_THEATRE,
-    CAMERA_BESTSHOT_BEACH,
-    CAMERA_BESTSHOT_SNOW,
-    CAMERA_BESTSHOT_SUNSET,
-    CAMERA_BESTSHOT_ANTISHAKE,
-    CAMERA_BESTSHOT_FIREWORKS,
-    CAMERA_BESTSHOT_SPORTS,
-    CAMERA_BESTSHOT_PARTY,
-    CAMERA_BESTSHOT_CANDLELIGHT,
-    CAMERA_BESTSHOT_BACKLIGHT,
-    CAMERA_BESTSHOT_FLOWERS,
-    CAMERA_BESTSHOT_AR,
-} camera_scene_mode_t;
+/* typedef enum { */
+/*     CAMERA_BESTSHOT_OFF, */
+/*     CAMERA_BESTSHOT_ACTION, */
+/*     CAMERA_BESTSHOT_PORTRAIT, */
+/*     CAMERA_BESTSHOT_LANDSCAPE, */
+/*     CAMERA_BESTSHOT_NIGHT, */
+/*     CAMERA_BESTSHOT_NIGHT_PORTRAIT, */
+/*     CAMERA_BESTSHOT_THEATRE, */
+/*     CAMERA_BESTSHOT_BEACH, */
+/*     CAMERA_BESTSHOT_SNOW, */
+/*     CAMERA_BESTSHOT_SUNSET, */
+/*     CAMERA_BESTSHOT_ANTISHAKE, */
+/*     CAMERA_BESTSHOT_FIREWORKS, */
+/*     CAMERA_BESTSHOT_SPORTS, */
+/*     CAMERA_BESTSHOT_PARTY, */
+/*     CAMERA_BESTSHOT_CANDLELIGHT, */
+/*     CAMERA_BESTSHOT_BACKLIGHT, */
+/*     CAMERA_BESTSHOT_FLOWERS, */
+/*     CAMERA_BESTSHOT_AR, */
+/* } camera_scene_mode_t; */
 
-enum {
-	LED_MODE_OFF,
-	LED_MODE_ON,
-	LED_MODE_AUTO,
-	LED_MODE_TORCH
-};
+/* enum { */
+/* 	LED_MODE_OFF, */
+/* 	LED_MODE_ON, */
+/* 	LED_MODE_AUTO, */
+/* 	LED_MODE_TORCH */
+/* }; */
 
 #define CAMERA_MIN_CONTRAST 0
 #define CAMERA_MAX_CONTRAST 255
@@ -251,7 +252,7 @@ public:
     void jpeg_set_location();
     void receiveJpegPictureFragment(uint8_t *buf, uint32_t size);
     void notifyShutter(common_crop_t *crop, bool mPlayShutterSoundOnly);
-    void receive_camframe_error_timeout();
+    void receive_camframe_error_timeout(camera_error_type err);
     static void getCameraInfo();
 
 private:
