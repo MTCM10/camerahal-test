@@ -41,10 +41,6 @@
 #include "CameraHardwareInterface.h"
 #include <cutils/properties.h>
 
-#define ALOGV LOGV
-#define ALOGE LOGE
-#define ALOGI LOGI
-
 using android::sp;
 using android::Overlay;
 using android::String8;
